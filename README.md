@@ -5,7 +5,7 @@ Uses [WMI](https://en.wikipedia.org/wiki/Windows_Management_Instrumentation) to 
 
 ## Requirements
 - [.NET Framework 4.0 or higher](https://dotnet.microsoft.com/).
-- Windows 7 or newer. (Possibly runs on older Windows, but this is untested.)
+- Should work on Windows Vista or newer. (Tested on Windows 7 and 10.)
 
 ## Purpose
 Useful for running automated tasks when a specific PnP device (like usb switch, flash drive, keyboard, smart card, etc.) is connected to or disconnected from a Windows computer.
