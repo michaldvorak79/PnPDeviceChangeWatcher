@@ -12,6 +12,7 @@ namespace PnpDeviceChangeWatcher {
     class PnPDeviceChangeWatcher {
         //command line options
         private static readonly string OPTION_HIDE = "/hide";
+        private static readonly string OPTION_HIDE_SIMULATED = "/hideSimulated"; //for debugging
         private static readonly string OPTION_HELP = "/help";
         private static readonly string OPTION_HELP_ALT = "/?";
         private static readonly string OPTION_DEVICE_ID = "/deviceId";
@@ -100,8 +101,8 @@ namespace PnpDeviceChangeWatcher {
          */
         private static bool IsDevicePresent() {
             //query WMI to check if our device is present
-            //(backslashes in our device ID have to be replaced with double backslashes, as WMI requires this)
-            using (var searcher = new ManagementObjectSearcher(String.Format("Select * From Win32_PnPEntity where DeviceID = \"{0}\"", deviceId.Replace(@"\", @"\\"))))
+            //(backslashes in our device ID have to be replaced with double backslashes, as WMI requires this. also quotes need to be backslashed.)
+            using (var searcher = new ManagementObjectSearcher(String.Format("Select * From Win32_PnPEntity where DeviceID = \"{0}\"", deviceId.Replace(@"\", @"\\").Replace("\"", "\\\""))))
             using (var collection = searcher.Get())
                 return collection.Count == 1;
         }
@@ -109,24 +110,34 @@ namespace PnpDeviceChangeWatcher {
         /*
          * Run a new instance of this program inside a hidden window. 
          */
-        private static void RunHidden(string[] args) {
+        private static void RunHidden(string[] args, bool simulate = false) {
             //get the path to our executable
             ProcessStartInfo info = new ProcessStartInfo(System.Reflection.Assembly.GetExecutingAssembly().Location);
             //convert arguments from array to single string
             StringBuilder argLine = new StringBuilder();
             foreach (string arg in args) {
                 //don't pass the /hide parameter to the new hidden instance of the program, otherwise new instances would be created endlessly
-                if (!IsArg(arg, OPTION_HIDE)) {
+                if (!IsArg(arg, OPTION_HIDE) && !IsArg(arg, OPTION_HIDE_SIMULATED)) {
                     if (argLine.Length > 0) argLine.Append(' ');
-                    //enclose the arguments in quotes (replacing any single quotes inside the argument by double quotes, as per cmd.exe standard), 
-                    //because the arguments can contain spaces and other weird characters and we want to preserve those
-                    argLine.Append("\"" + arg.Replace("\"", "\"\"") + "\"");
+                    //enclose the arguments in quotes (replacing any single quotes inside the argument by double quotes, as per Windows shell standard), 
+                    //because the arguments can contain spaces and other weird characters and we want to preserve those.
+                    //Also backslashes at the end of the argument apparently need to be doubled. Weird.
+                    string escapedArgument = arg;
+                    int numEndingBackslashes = 0;
+                    while (escapedArgument.EndsWith("\\")) {
+                        numEndingBackslashes++;
+                        escapedArgument = escapedArgument.Substring(0, escapedArgument.Length - 1);
+                    }
+                    for (int i = 0; i < numEndingBackslashes; i++) escapedArgument += @"\\";
+                    argLine.Append("\"" + escapedArgument.Replace("\"", "\"\"") + "\"");
                 }
             }
             info.Arguments = argLine.ToString();
-            info.WindowStyle = ProcessWindowStyle.Hidden;
             info.UseShellExecute = false;
-            info.CreateNoWindow = true;
+            if (!simulate) {
+                info.WindowStyle = ProcessWindowStyle.Hidden;
+                info.CreateNoWindow = true;
+            }
 
             Process.Start(info);
         }
@@ -143,6 +154,10 @@ namespace PnpDeviceChangeWatcher {
                 if (IsArg(args[i], OPTION_HIDE)) {
                     //run a new hidden instance of the program and exit
                     RunHidden(args);
+                    Environment.Exit(0);
+                } else if (IsArg(args[i], OPTION_HIDE_SIMULATED)) {
+                    //simulate a new hidden instance of the program (for debug purposes) and exit
+                    RunHidden(args, true);
                     Environment.Exit(0);
                 } else if (IsArg(args[i], OPTION_STOP)) {
                     //send the stop signal to all other instances and exit
