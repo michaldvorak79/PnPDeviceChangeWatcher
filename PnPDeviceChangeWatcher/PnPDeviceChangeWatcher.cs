@@ -74,11 +74,17 @@ namespace PnpDeviceChangeWatcher {
             bool newStatus = IsDevicePresent();
 
             if (newStatus != connected) {
+                ProcessStartInfo info = new ProcessStartInfo("cmd.exe") {
+                    WindowStyle = ProcessWindowStyle.Hidden,
+                    CreateNoWindow = true,
+                    Arguments = "/c "
+                };
                 if (newStatus) {
                     Console.WriteLine("\nDevice connected");
                     if (commandOnConnect != null) {
                         Console.WriteLine("Executing command: " + commandOnConnect);
-                        Process.Start("cmd.exe", "/c " + commandOnConnect);
+                        info.Arguments += commandOnConnect;
+                        Process.Start(info);
                     } else {
                         Console.WriteLine("No command specified, doing nothing");
                     }
@@ -86,7 +92,8 @@ namespace PnpDeviceChangeWatcher {
                     Console.WriteLine("\nDevice disconnected");
                     if (commandOnDisconnect != null) {
                         Console.WriteLine("Executing command: " + commandOnDisconnect);
-                        Process.Start("cmd.exe", "/c " + commandOnDisconnect);
+                        info.Arguments += commandOnDisconnect;
+                        Process.Start(info);
                     } else {
                         Console.WriteLine("No command specified, doing nothing");
                     }
